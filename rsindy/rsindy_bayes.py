@@ -1,6 +1,8 @@
 import numpy as np
 from cmdstanpy import CmdStanModel
-from rsindy import RSINDy
+from rsindy.rsindy import RSINDy
+import os
+import tempfile
 
 
 class RSINDyNonRegularized(RSINDy):
@@ -47,6 +49,7 @@ class RSINDyNonRegularized(RSINDy):
             file = "models/regression_normal_est_dx.stan"
         else:
             file = "models/regression_normal_fixed_dx.stan"
+        file = os.path.join(os.path.dirname(__file__), file)
 
         model = CmdStanModel(stan_file=file)
 
@@ -135,6 +138,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
             file = "models/horseshoe_normal_est_dx.stan"
         else:
             file = "models/horseshoe_normal_fixed_dx.stan"
+        file = os.path.join(os.path.dirname(__file__), file)
 
         model = CmdStanModel(stan_file=file)
 
@@ -181,7 +185,9 @@ class RSINDyRegularizedHorseshoe(RSINDy):
             }}
         }}
         """
-        with open("models/horseshoe_lognormal_fixed_nondx.stan", 'r') as file:
+        base_file = "models/horseshoe_lognormal_fixed_nondx.stan"
+        base_file = os.path.join(os.path.dirname(__file__), base_file)
+        with open(base_file, 'r') as file:
             base_model_str = file.read()
 
         rate_fn_str = ""
@@ -217,8 +223,9 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                     model_params={}):
 
         model_str = self._create_non_derivative_stan_model(S, R)
-        with open('models/tempfile.stan', 'w') as file:
-            file.write(model_str)
+        fp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".stan")
+        fp.write(model_str)
+        fp.seek(0)
 
         data = {
             'N': ts[1:].shape[0],
@@ -238,7 +245,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
         default_model_params = {**default_model_params, **model_params}
         data = {**data, **default_model_params}
 
-        model = CmdStanModel(stan_file="models/tempfile.stan")
+        model = CmdStanModel(stan_file=fp.name)
 
         default_fit_params = {'chains': 4,
                               'iter_warmup': 1000,
@@ -265,5 +272,5 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                 inits=default_fit_params['init'],
                 show_progress=default_fit_params['show_progress'],
                 max_treedepth=default_fit_params['max_treedepth'])
-
+        fp.close()
         return fit

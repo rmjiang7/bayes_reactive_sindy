@@ -1,6 +1,6 @@
 import numpy as np
 import abc
-from utils import generate_valid_reaction_basis, encode
+from rsindy.utils import generate_valid_reaction_basis, encode
 
 
 class RSINDy(object):
