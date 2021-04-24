@@ -22,6 +22,23 @@ class RSINDy(object):
 
         return self.description[self.enc_to_desc(code)]
 
+    def remove_reactions(self, reaction_descriptions):
+
+        for desc in reaction_descriptions:
+            for i, d in enumerate(self.description):
+                if desc == d:
+                    self.description.pop(i)
+                    self.rate_matrix = np.delete(self.rate_matrix, i, 0)
+                    self.stoichiometry = np.delete(self.stoichiometry, i, 0)
+                    desc_key = -1
+                    for k, v in self.enc_to_desc.items():
+                        if v > i:
+                            self.enc_to_desc[k] = v - 1
+                        elif v == i:
+                            desc_key = k
+                    del self.enc_to_desc[desc_key]
+                    break
+
     @abc.abstractmethod
     def _fit_dx(self,
                 X_obs,
