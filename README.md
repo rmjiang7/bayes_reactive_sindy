@@ -5,7 +5,7 @@ This is the code to accompany the paper "Sparse bayesian inference of mass-actio
 Examples of use and experiments presented in the paper are shown in the analysis directory in notebook format.
 
 The `RSindy` abstract base class represents a class which
-`.  Build an ansatz reaction set
+1.  Build an ansatz reaction set
 2.  Construct the appropriate stocihiometric matrices, mass action reaction ratees, and descriptions
 3.  Pre-process observational data 
 4.  Defines a method to estimate the reaction rate constants k as described in the paper
