@@ -57,15 +57,23 @@ class RSINDyNonRegularized(RSINDy):
                               'iter_warmup': 1000,
                               'iter_sampling': 1000,
                               'optimize': False,
-                              'variational': False,
                               'init': None,
-                              'show_progress': False}
+                              'show_progress': False,
+                              'variational': False,
+                              'v_iters': 1000,
+                              'v_grad_samples': None,
+                              'v_elbo_samples': None}
         default_fit_params = {**default_fit_params, **fit_params}
 
         if default_fit_params['optimize']:
             fit = model.optimize(data=data)
         elif default_fit_params['variational']:
-            fit = model.variational(data=data)
+            fit = model.variational(
+                data=data,
+                iter=default_fit_params['v_iters'],
+                grad_samples=default_fit_params['v_grad_samples'],
+                elbo_samples=default_fit_params['v_elbo_samples'],
+                require_converged=False)
         else:
             fit = model.sample(
                 data=data,
@@ -146,16 +154,24 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                               'iter_warmup': 1000,
                               'iter_sampling': 1000,
                               'optimize': False,
-                              'variational': False,
                               'init': None,
-                              'show_progress': False}
+                              'show_progress': False,
+                              'variational': False,
+                              'v_iters': 1000,
+                              'v_grad_samples': None,
+                              'v_elbo_samples': None}
         default_fit_params = {**default_fit_params, **fit_params}
 
         if default_fit_params['optimize']:
             fit = model.optimize(data=data,
                                  inits=default_fit_params['init'])
         elif default_fit_params['variational']:
-            fit = model.variational(data=data)
+            fit = model.variational(
+                data=data,
+                iter=default_fit_params['v_iters'],
+                grad_samples=default_fit_params['v_grad_samples'],
+                elbo_samples=default_fit_params['v_elbo_samples'],
+                require_converged=False)
             fit.variational_sample.columns = fit.column_names
         else:
             fit = model.sample(
@@ -251,17 +267,25 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                               'iter_warmup': 1000,
                               'iter_sampling': 1000,
                               'optimize': False,
-                              'variational': False,
                               'init': None,
                               'show_progress': False,
-                              'max_treedepth': 10}
+                              'max_treedepth': 10,
+                              'variational': False,
+                              'v_iters': 1000,
+                              'v_grad_samples': None,
+                              'v_elbo_samples': None}
         default_fit_params = {**default_fit_params, **fit_params}
 
         if default_fit_params['optimize']:
             fit = model.optimize(data=data,
                                  inits=default_fit_params['init'])
         elif default_fit_params['variational']:
-            fit = model.variational(data=data)
+            fit = model.variational(
+                data=data,
+                iter=default_fit_params['v_iters'],
+                grad_samples=default_fit_params['v_grad_samples'],
+                elbo_samples=default_fit_params['v_elbo_samples'],
+                require_converged=False)
             fit.variational_sample.columns = fit.column_names
         else:
             fit = model.sample(
