@@ -7,7 +7,7 @@ data {
     matrix[N,D] rate_matrix;
     vector[M - 1] y[N];
 
-    row_vector[D1] known_rates;
+    vector[D1] known_rates;
 
     // horseshoe parameters
     real m0;

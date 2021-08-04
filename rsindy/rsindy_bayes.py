@@ -191,16 +191,14 @@ class RSINDyRegularizedHorseshoe(RSINDy):
     def _create_non_derivative_stan_model(self, S, R):
         model_str = """
         functions {{
-            real[] sys(real t,
-                       real[] y,
-                       real[] theta,
-                       real[] x_r,
-                       int[] x_i) {{
-                real dydt[{}];
+            vector sys(real t,
+                       vector y,
+                       vector theta) {{
+                vector[{}] dydt;
                 vector[{}] v;
                 matrix[{}, {}] S = {};
                 {}
-                dydt = to_array_1d(S * v);
+                dydt = S * v;
                 return dydt;
             }}
         }}

@@ -7,7 +7,7 @@ data {
     real y[N + 1, M];
     real ts[N + 1];
 
-    row_vector[D1] known_rates;
+    vector[D1] known_rates;
 
     // horsehoe parameters
     real m0;
@@ -23,8 +23,6 @@ data {
 transformed data {
     real slab_scale2 = square(slab_scale);
     real half_slab_df = 0.5 * slab_df;
-    real x_r[0];
-    int x_i[0];
 }
 
 parameters {
@@ -37,11 +35,11 @@ parameters {
 }
 
 transformed parameters {
-    row_vector[D] rates;
+    vector[D] rates;
     real c2;
     real tau;
     vector[D - D1] lambda_tilde;
-    real y_hat[N, M];
+    vector[M] y_hat[N];
     {
         real tau0 = (m0 / (D - D1 - m0)) * (sigma / sqrt(N * M));
         tau = tau0;//* tau_tilde;
@@ -51,17 +49,15 @@ transformed parameters {
         lambda_tilde = sqrt((c2 * square(lambda)) ./ (c2 + square(tau) * square(lambda)));
 
         if(D1 > 0) {
-          rates[:D1] = to_row_vector(known_rates);
+          rates[:D1] = known_rates;
         }
-        rates[D1 + 1:] = to_row_vector(tau * lambda_tilde .* unknown_rates_tilde);
+        rates[D1 + 1:] = tau * lambda_tilde .* unknown_rates_tilde;
     }
-    y_hat = integrate_ode_rk45(sys,
-                               y[1,:],
-                               ts[1],
-                               ts[2:],
-                               to_array_1d(rates),
-                               x_r,x_i,
-                               1e-6, 1e-5, 1e3);
+    y_hat = ode_rk45(sys,
+                     to_vector(y[1,:]),
+                     ts[1],
+                     ts[2:],
+                     rates);
 }
 
 model {
