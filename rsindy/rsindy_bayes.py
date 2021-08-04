@@ -37,7 +37,7 @@ class RSINDyNonRegularized(RSINDy):
             'D1': len(known_rates),
             'stoichiometric_matrix': S.T,
             'rate_matrix': pre_applied_stoichiometries,
-            'y': y,
+            'y': np.array(y),
             'known_rates': known_rates
         }
 
@@ -60,6 +60,7 @@ class RSINDyNonRegularized(RSINDy):
                               'init': None,
                               'show_progress': False,
                               'variational': False,
+                              'algorithm': 'meanfield',
                               'v_iters': 1000,
                               'v_grad_samples': None,
                               'v_elbo_samples': None}
@@ -73,6 +74,7 @@ class RSINDyNonRegularized(RSINDy):
                 iter=default_fit_params['v_iters'],
                 grad_samples=default_fit_params['v_grad_samples'],
                 elbo_samples=default_fit_params['v_elbo_samples'],
+                algorithm=default_fit_params['algorithm'],
                 require_converged=False)
         else:
             fit = model.sample(
@@ -157,6 +159,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                               'init': None,
                               'show_progress': False,
                               'variational': False,
+                              'algorithm' : 'meanfield',
                               'v_iters': 1000,
                               'v_grad_samples': None,
                               'v_elbo_samples': None}
@@ -171,6 +174,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                 iter=default_fit_params['v_iters'],
                 grad_samples=default_fit_params['v_grad_samples'],
                 elbo_samples=default_fit_params['v_elbo_samples'],
+                algorithm=default_fit_params['algorithm'],
                 require_converged=False)
             fit.variational_sample.columns = fit.column_names
         else:
@@ -271,6 +275,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                               'show_progress': False,
                               'max_treedepth': 10,
                               'variational': False,
+                              'algorithm' : 'meanfield',
                               'v_iters': 1000,
                               'v_grad_samples': None,
                               'v_elbo_samples': None}
@@ -285,6 +290,7 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                 iter=default_fit_params['v_iters'],
                 grad_samples=default_fit_params['v_grad_samples'],
                 elbo_samples=default_fit_params['v_elbo_samples'],
+                algorithm=default_fit_params['algorithm'],
                 require_converged=False)
             fit.variational_sample.columns = fit.column_names
         else:

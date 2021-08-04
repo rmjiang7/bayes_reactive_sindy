@@ -5,11 +5,13 @@ from rsindy.utils import generate_valid_reaction_basis, encode
 
 class RSINDy(object):
 
-    def __init__(self, species_names):
+    def __init__(self,
+                 species_names,
+                 basis_functions=generate_valid_reaction_basis):
 
         self.species_names = species_names
 
-        network = generate_valid_reaction_basis(self.species_names)
+        network = basis_functions(self.species_names)
 
         self.stoichiometry = network[0]
         self.rate_matrix = network[1]
@@ -110,7 +112,8 @@ class RSINDy(object):
                N=-1,
                fit_params={},
                model_params={},
-               seed=None):
+               seed=None,
+               shuffle=True):
 
         if seed is not None:
             np.random.seed(seed)
@@ -118,8 +121,12 @@ class RSINDy(object):
         if N == -1:
             N = self.stoichiometry.shape[0] - known_S.shape[0]
 
-        random_set = self._select_random_set(known_S, known_R, N)
-        reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
+        if shuffle:
+            random_set = self._select_random_set(known_S, known_R, N)
+            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
+        else:
+            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = \
+                None, self.stoichiometry, self.rate_matrix, self.description
 
         fit = self._fit_dx(X_obs,
                            ts,
@@ -140,15 +147,20 @@ class RSINDy(object):
                    N=-1,
                    fit_params={},
                    model_params={},
-                   seed=None):
+                   seed=None,
+                   shuffle=True):
         if seed is not None:
             np.random.seed(seed)
 
         if N == -1:
             N = self.stoichiometry.shape[0] - known_S.shape[0]
 
-        random_set = self._select_random_set(known_S, known_R, N)
-        reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
+        if shuffle:
+            random_set = self._select_random_set(known_S, known_R, N)
+            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
+        else:
+            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = \
+                None, self.stoichiometry, self.rate_matrix, self.description
 
         fit = self._fit_non_dx(X_obs,
                                ts,

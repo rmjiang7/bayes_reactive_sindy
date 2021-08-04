@@ -2,6 +2,67 @@ import numpy as np
 import itertools
 
 
+def convert_to_rsindy(descriptions, species):
+    reactions = []
+    species_to_idx_map = {s: i for i, s in enumerate(species)}
+    for desc in descriptions:
+        reactants, products = desc.split("->")
+        if "+" in reactants:
+            r = list(
+                map(lambda x: species_to_idx_map[x.strip()], reactants.split("+")))
+            if "+" in products:
+                p = list(
+                    map(lambda x: species_to_idx_map[x.strip()], reactants.split("+")))
+                reactions.append(
+                    "result.add_double_conversion([{},{}],[{},{}])".format(r[0], r[1], p[0], p[1]))
+            elif "2" in products:
+                p = species_to_idx_map[products.replace("2", "").strip()]
+                reactions.append(
+                    "result.add_double_conversion([{},{}],[{},{}])".format(r[0], r[1], p, p))
+            elif products == "0":
+                reactions.append(
+                    "result.add_fusion({},{},{})".format(r[0], r[1], "None"))
+            else:
+                reactions.append("result.add_fusion({},{},{})".format(
+                    r[0], r[1], species_to_idx_map[products.strip()]))
+        elif "2" in reactants:
+            r = species_to_idx_map[reactants.replace("2", "").strip()]
+            if "+" in products:
+                p = list(
+                    map(lambda x: species_to_idx_map[x.strip()], products.split("+")))
+                reactions.append(
+                    "result.add_double_conversion([{},{}],[{},{}])".format(r, r, p[0], p[1]))
+            elif "2" in products:
+                p = species_to_idx_map[products.replace("2", "").strip()]
+                reactions.append(
+                    "result.add_double_conversion([{},{}],[{},{}])".format(r, r, p, p))
+            elif products.strip() == "0":
+                reactions.append(
+                    "result.add_fusion({},{},{})".format(r, r, "None"))
+            else:
+                reactions.append("result.add_fusion({},{},{})".format(
+                    r, r, species_to_idx_map[products.strip()]))
+        else:
+            r = species_to_idx_map[reactants.strip(
+            )] if reactants.strip() != "0" else "None"
+            if "+" in products:
+                p = list(
+                    map(lambda x: species_to_idx_map[x.strip()], products.split("+")))
+                reactions.append(
+                    "result.add_fission({},{},{})".format(r, p[0], p[1]))
+            elif "2" in products:
+                p = species_to_idx_map[products.replace("2", "").strip()]
+                reactions.append(
+                    "result.add_fission({},{},{})".format(r, p, p))
+            elif products.strip() == "0":
+                reactions.append("result.add_decay({})".format(r))
+            else:
+                reactions.append("result.add_conversion({},{})".format(
+                    r, species_to_idx_map[products.strip()]))
+
+    return reactions
+
+
 def encode(stoichiometry, rate):
     return ",".join(
         stoichiometry.astype(int).astype(str)
@@ -16,6 +77,7 @@ def generate_valid_reaction_basis(species):
     stoichiometry = []
     rates = []
     reaction_description = []
+
     # Mono-molecular
     for i, s in enumerate(species):
         creation = np.zeros(len(species) + 1)
@@ -25,11 +87,14 @@ def generate_valid_reaction_basis(species):
         destruction = np.zeros(len(species) + 1)
         destruction[i] = -1
         stoichiometry += [creation, destruction]
+        #stoichiometry += [destruction]
         destruction_rate = np.zeros(len(species) + 1)
         destruction_rate[i] = 1
         rates += [creation_rate, destruction_rate]
+        #rates += [destruction_rate]
         reaction_description += ["0 -> {}".format(s),
-                                 "{} -> 0".format(s)]
+                                "{} -> 0".format(s)]
+        #reaction_description += ["{} -> 0".format(s)]
 
         for j, z in enumerate(species):
             if z != s:
