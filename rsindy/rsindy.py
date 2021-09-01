@@ -1,7 +1,7 @@
 import numpy as np
 import abc
-from rsindy.utils import generate_valid_reaction_basis, encode
-
+from rsindy.utils import generate_valid_reaction_basis, encode, solve_estimated_dynamics
+import matplotlib.pyplot as plt
 
 class RSINDy(object):
 
@@ -41,6 +41,19 @@ class RSINDy(object):
                     del self.enc_to_desc[desc_key]
                     break
 
+    def plot_simulated_trajectories(self, rates, S, R, y0, t, thresh = 0):
+        fig, ax = plt.subplots(1, len(self.species_names))
+
+        for rate in rates:
+            Z_inf = solve_estimated_dynamics(rate, S, R, y0, t, thresh = thresh)
+            for i in range(len(self.species_names)):
+                ax[i].plot(t, Z_inf[:,i], color = 'C%d' % i)
+
+        for i in range(len(self.species_names)):
+            ax[i].set_title(self.species_names[i])
+
+        return fig
+
     @abc.abstractmethod
     def _fit_dx(self,
                 X_obs,
@@ -54,10 +67,14 @@ class RSINDy(object):
 
     @abc.abstractmethod
     def _fit_non_dx(self,
+                    X0,
                     X_obs,
                     ts,
                     S,
                     R,
+                    observed_species_indices,
+                    regularized,
+                    additive,
                     known_rates,
                     fit_params,
                     model_params):
@@ -66,7 +83,8 @@ class RSINDy(object):
     def _select_random_set(self,
                            known_S,
                            known_R,
-                           N):
+                           N,
+                           shuffle = True):
 
         reordered_rates = None
         if known_S is not None:
@@ -82,15 +100,21 @@ class RSINDy(object):
             available_reactions = list(set([i for i in range(
                 0, self.stoichiometry.shape[0])]).difference(set(known_rx)))
 
-            # Rearranged/Shuffled stoichiometry
-            known_rx = np.hstack([known_rx, np.random.choice(
-                available_reactions, size=N, replace=False)])
+            if shuffle:
+                # Rearranged/Shuffled stoichiometry
+                known_rx = np.hstack([known_rx, np.random.choice(
+                    available_reactions, size=N, replace=False)])
+            else:
+                known_rx = np.hstack([known_rx, available_reactions])
         else:
             # No known reactions, pick a random subset
-            known_rx = np.random.choice(
-                list(range(self.stoichiometry.shape[0])),
-                size=N,
-                replace=False)
+            if shuffle:
+                known_rx = np.random.choice(
+                    list(range(self.stoichiometry.shape[0])),
+                    size=N,
+                    replace=False)
+            else:
+                known_rx = list(range(self.stoichiometry.shape[0]))
 
         # Rearrange all terms
         r_stoichiometry = self.stoichiometry[known_rx, :]
@@ -121,12 +145,11 @@ class RSINDy(object):
         if N == -1:
             N = self.stoichiometry.shape[0] - known_S.shape[0]
 
-        if shuffle:
-            random_set = self._select_random_set(known_S, known_R, N)
-            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
-        else:
-            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = \
-                None, self.stoichiometry, self.rate_matrix, self.description
+        random_set = self._select_random_set(known_S,
+                                             known_R,
+                                             N,
+                                             shuffle = shuffle)
+        reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
 
         fit = self._fit_dx(X_obs,
                            ts,
@@ -139,14 +162,18 @@ class RSINDy(object):
         return fit, reorder, r_stoichiometry, r_rate_matrix, r_descriptions
 
     def fit_non_dx(self,
+                   X0,
                    X_obs,
                    ts,
                    known_S=None,
                    known_R=None,
+                   observed_species=None,
                    known_rates=[],
                    N=-1,
                    fit_params={},
                    model_params={},
+                   regularized=True,
+                   additive=False,
                    seed=None,
                    shuffle=True):
         if seed is not None:
@@ -155,17 +182,26 @@ class RSINDy(object):
         if N == -1:
             N = self.stoichiometry.shape[0] - known_S.shape[0]
 
-        if shuffle:
-            random_set = self._select_random_set(known_S, known_R, N)
-            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
-        else:
-            reorder, r_stoichiometry, r_rate_matrix, r_descriptions = \
-                None, self.stoichiometry, self.rate_matrix, self.description
+        random_set = self._select_random_set(known_S,
+                                             known_R,
+                                             N,
+                                             shuffle = shuffle)
+        reorder, r_stoichiometry, r_rate_matrix, r_descriptions = random_set
 
-        fit = self._fit_non_dx(X_obs,
+        if observed_species == None:
+            observed_species_indices = [i for i in range(len(self.species_names))]
+        else:
+            observed_species_indices = [i for i in range(len(self.species_names)) if self.species_names[i] in observed_species]
+            assert(len(observed_species_indices) == X_obs.shape[1])
+
+        fit = self._fit_non_dx(X0,
+                               X_obs,
                                ts,
                                r_stoichiometry,
                                r_rate_matrix,
+                               observed_species_indices,
+                               regularized,
+                               additive,
                                known_rates,
                                fit_params,
                                model_params)

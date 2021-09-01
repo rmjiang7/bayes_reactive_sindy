@@ -83,6 +83,7 @@ class RSINDyNonRegularized(RSINDy):
                 iter_warmup=default_fit_params['iter_warmup'],
                 iter_sampling=default_fit_params['iter_sampling'],
                 inits=default_fit_params['init'],
+                refresh=1,
                 show_progress=default_fit_params['show_progress'])
 
         return fit
@@ -184,11 +185,15 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                 iter_warmup=default_fit_params['iter_warmup'],
                 iter_sampling=default_fit_params['iter_sampling'],
                 inits=default_fit_params['init'],
+                refresh=1,
                 show_progress=default_fit_params['show_progress'])
 
         return fit
 
-    def _create_non_derivative_stan_model(self, S, R):
+    def _create_non_derivative_stan_model(self, S, R,
+                                          regularized = True,
+                                          additive = False,
+                                          prior_predictive = False):
         model_str = """
         functions {{
             vector sys(real t,
@@ -203,7 +208,15 @@ class RSINDyRegularizedHorseshoe(RSINDy):
             }}
         }}
         """
-        base_file = "models/horseshoe_lognormal_fixed_nondx.stan"
+        if regularized:
+            if prior_predictive:
+                base_file = "models/reg_horseshoe_lognormal_fixed_nondx_pr_pred.stan"
+            elif additive:
+                base_file = "models/reg_horseshoe_lognormal_fixed_nondx_additive.stan"
+            else:
+                base_file = "models/reg_horseshoe_lognormal_fixed_nondx.stan"
+        else:
+            base_file = "models/horseshoe_lognormal_fixed_nondx.stan"
         base_file = os.path.join(os.path.dirname(__file__), base_file)
         with open(base_file, 'r') as file:
             base_model_str = file.read()
@@ -232,24 +245,26 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                                 rate_fn_str) + base_model_str
 
     def _fit_non_dx(self,
+                    X0,
                     X_obs,
                     ts,
                     S,
                     R,
+                    observed_species_indices,
+                    regularized = True,
+                    additive = False,
                     known_rates=[],
                     fit_params={},
                     model_params={}):
 
-        model_str = self._create_non_derivative_stan_model(S, R)
-        fp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".stan")
-        fp.write(model_str)
-        fp.seek(0)
-
         data = {
             'N': ts[1:].shape[0],
             'M': S.shape[1] - 1,
+            'M_obs' : len(observed_species_indices),
+            'obs_idx' : [i + 1 for i in observed_species_indices], # stan idx
             'D': S.shape[0],
             'D1': len(known_rates),
+            'y0' : X0,
             'y': X_obs,
             'ts': ts,
             'known_rates': known_rates
@@ -258,12 +273,10 @@ class RSINDyRegularizedHorseshoe(RSINDy):
         default_model_params = {'m0': 10,
                                 'slab_scale': 1,
                                 'slab_df': 2,
-                                'sigma': 0.001,
+                                'tau0': 0.001,
                                 'noise_sigma': 1}
         default_model_params = {**default_model_params, **model_params}
         data = {**data, **default_model_params}
-
-        model = CmdStanModel(stan_file=fp.name)
 
         default_fit_params = {'chains': 4,
                               'iter_warmup': 1000,
@@ -276,8 +289,19 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                               'algorithm' : 'meanfield',
                               'v_iters': 1000,
                               'v_grad_samples': None,
-                              'v_elbo_samples': None}
+                              'v_elbo_samples': None,
+                              'prior_predictive' : False}
         default_fit_params = {**default_fit_params, **fit_params}
+
+        model_str = self._create_non_derivative_stan_model(
+            S, R,
+            regularized, additive, default_fit_params['prior_predictive']
+        )
+        fp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".stan")
+        fp.write(model_str)
+        fp.seek(0)
+
+        model = CmdStanModel(stan_file=fp.name)
 
         if default_fit_params['optimize']:
             fit = model.optimize(data=data,
@@ -292,13 +316,23 @@ class RSINDyRegularizedHorseshoe(RSINDy):
                 require_converged=False)
             fit.variational_sample.columns = fit.column_names
         else:
-            fit = model.sample(
-                data=data,
-                chains=default_fit_params['chains'],
-                iter_warmup=default_fit_params['iter_warmup'],
-                iter_sampling=default_fit_params['iter_sampling'],
-                inits=default_fit_params['init'],
-                show_progress=default_fit_params['show_progress'],
-                max_treedepth=default_fit_params['max_treedepth'])
+            if  default_fit_params['prior_predictive']:
+                fit = model.sample(
+                    data=data,
+                    iter_sampling=default_fit_params['iter_sampling'],
+                    inits=default_fit_params['init'],
+                    show_progress=default_fit_params['show_progress'],
+                    refresh=1,
+                    fixed_param=True)
+            else:
+                fit = model.sample(
+                    data=data,
+                    chains=default_fit_params['chains'],
+                    iter_warmup=default_fit_params['iter_warmup'],
+                    iter_sampling=default_fit_params['iter_sampling'],
+                    inits=default_fit_params['init'],
+                    refresh=1,
+                    show_progress=default_fit_params['show_progress'],
+                    max_treedepth=default_fit_params['max_treedepth'])
         fp.close()
         return fit

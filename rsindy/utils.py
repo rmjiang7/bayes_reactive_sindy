@@ -1,6 +1,24 @@
 import numpy as np
 import itertools
+from scipy import integrate
 
+def prune_reactions(fit, threshold = 1e-3, pthresh = 0.9):
+    tau = fit.stan_variables()['tau']
+    lambda_tilde = fit.stan_variables()['lambda_tilde']
+    probs = np.sum((lambda_tilde * tau.reshape(-1,1) > threshold), axis = 0)/tau.shape[0]
+    return probs, np.where(probs > pthresh)[0]
+
+def solve_estimated_dynamics(rates, S, R, y0, t, thresh = 0):
+    est_rates = rates.copy()
+    est_rates[est_rates < thresh] = 0
+    def dZdt_inf(Z, t = 0):
+        ap = np.hstack([Z, 1]) * (R == 1)
+        ap += (np.hstack([Z, 1]) * (R == 2)) ** 2
+        ap_mask = ap + (ap == 0).astype(np.float32)
+        extend_Z = np.prod(ap_mask, axis = 1) * est_rates
+        return (S.T @ extend_Z)[:-1]
+    Z_obs_inf = integrate.odeint(dZdt_inf, y0, t)
+    return Z_obs_inf
 
 def convert_to_rsindy(descriptions, species):
     reactions = []
@@ -86,15 +104,15 @@ def generate_valid_reaction_basis(species):
         creation_rate[-1] = 1
         destruction = np.zeros(len(species) + 1)
         destruction[i] = -1
-        stoichiometry += [creation, destruction]
-        #stoichiometry += [destruction]
+        #stoichiometry += [creation, destruction]
+        stoichiometry += [destruction]
         destruction_rate = np.zeros(len(species) + 1)
         destruction_rate[i] = 1
-        rates += [creation_rate, destruction_rate]
-        #rates += [destruction_rate]
-        reaction_description += ["0 -> {}".format(s),
-                                "{} -> 0".format(s)]
-        #reaction_description += ["{} -> 0".format(s)]
+        #rates += [creation_rate, destruction_rate]
+        rates += [destruction_rate]
+        #reaction_description += ["0 -> {}".format(s),
+    #                            "{} -> 0".format(s)]
+        reaction_description += ["{} -> 0".format(s)]
 
         for j, z in enumerate(species):
             if z != s:
